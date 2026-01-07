@@ -9,7 +9,32 @@ namespace Sandbox.examples
         public string Email { get; set; } = string.Empty;
     }
 
+    // Basic error - simple and lightweight
     public record Error(string Code, string Message);
+
+    // Indexed error - for array/collection validation
+    public record IndexedError(string Code, string Message, int Index, string? AttemptedValue = null);
+
+    // Field error - for form/DTO validation
+    public record FieldError(string Field, string Code, string Message, string? AttemptedValue = null);
+
+    // Rich error - for complex scenarios with metadata
+    public record RichError(string Code, string Message, Dictionary<string, object>? Metadata = null)
+    {
+        public RichError WithMetadata(string key, object value)
+        {
+            var meta = Metadata ?? new Dictionary<string, object>();
+            meta[key] = value;
+            return this with { Metadata = meta };
+        }
+
+        public T? GetMetadata<T>(string key)
+        {
+            if (Metadata != null && Metadata.TryGetValue(key, out var value) && value is T typedValue)
+                return typedValue;
+            return default;
+        }
+    }
 
     public class ResultExamples
     {
@@ -94,15 +119,6 @@ namespace Sandbox.examples
             }
         }
 
-        // Example 8: Combining multiple results
-        public static Result<(User User, string Email), Error> GetUserWithEmail(int userId)
-        {
-            var userResult = GetUser(userId);
-            var emailResult = GetUserEmail(userId);
-
-            return userResult.Combine(emailResult);
-        }
-
         // Example 9: Async operations
         public static async Task<Result<User, Error>> GetUserAsync(int userId)
         {
@@ -131,15 +147,8 @@ namespace Sandbox.examples
 
                     await Task.Delay(50); // Simulate sending email
                     Console.WriteLine($"Sent email to {user.Email}");
-                    return true;
+                    return Result<bool, Error>.Success(true);
                 });
-        }
-
-        // Example 11: Using Ensure to throw on error
-        public static User GetUserOrThrow(int userId)
-        {
-            return GetUser(userId).Ensure(error =>
-                new InvalidOperationException($"Failed to get user: {error.Message}"));
         }
 
         // Example 12: Explicit casting
@@ -223,12 +232,6 @@ namespace Sandbox.examples
             Console.WriteLine("Example 6: ValueOr");
             var email = GetEmailOrDefault(-1);
             Console.WriteLine($"Email: {email}\n");
-
-            // Example 8
-            Console.WriteLine("Example 8: Combine");
-            var combined = GetUserWithEmail(1);
-            if (combined.IsSuccess)
-                Console.WriteLine($"Combined: {combined.Value}\n");
 
             // Example 9
             Console.WriteLine("Example 9: Async");

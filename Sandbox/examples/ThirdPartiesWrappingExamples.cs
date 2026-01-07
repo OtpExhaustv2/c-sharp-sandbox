@@ -52,7 +52,7 @@ namespace Sandbox.examples
 
         public static async Task<Result<User, ApiError>> GetUserAsync(int userId)
         {
-            return await ResultHelpers.TryValidateAsync(
+            return await ResultHelpers.TryValidateAsync<(HttpResponseMessage response, string json), User, ApiError>(
                 async () =>
                 {
                     var response = await _httpClient.GetAsync($"https://api.example.com/users/{userId}");
@@ -79,7 +79,10 @@ namespace Sandbox.examples
                     try
                     {
                         var user = JsonSerializer.Deserialize<User>(json);
-                        return user ?? new ApiError("PARSE_ERROR", "Failed to deserialize user");
+                        if (user == null)
+                            return new ApiError("PARSE_ERROR", "Failed to deserialize user");
+
+                        return user;
                     }
                     catch (JsonException ex)
                     {
