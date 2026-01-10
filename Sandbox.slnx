@@ -1,3 +1,4 @@
 <Solution>
+  <Project Path="sandbox-api/sandbox-api.csproj" Id="6171e9e9-f73a-4bdb-8324-47fcf9578df9" />
   <Project Path="Sandbox/Sandbox.csproj" />
 </Solution>
