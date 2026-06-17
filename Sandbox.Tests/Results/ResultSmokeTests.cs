@@ -1,7 +1,7 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Sandbox.Core.Results;
 
-namespace Sandbox.Tests
+namespace Sandbox.Tests.Results
 {
     [TestClass]
     public class ResultSmokeTests

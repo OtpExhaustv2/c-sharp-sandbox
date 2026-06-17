@@ -2,7 +2,7 @@ using System.Data;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Sandbox.Core.Sql;
 
-namespace Sandbox.Tests
+namespace Sandbox.Tests.Sql
 {
     [TestClass]
     public class RowMaterializerTests

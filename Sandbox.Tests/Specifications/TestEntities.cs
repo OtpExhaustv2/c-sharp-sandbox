@@ -1,6 +1,6 @@
 using Sandbox.Core.Specifications;
 
-namespace Sandbox.Tests
+namespace Sandbox.Tests.Specifications
 {
     public record Widget(int Id, string Name, decimal Price, bool InStock);
 
