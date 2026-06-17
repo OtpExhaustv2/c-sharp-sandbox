@@ -19,37 +19,37 @@ namespace Sandbox.Tests
         }
 
         [TestMethod]
-        public void Materialize_MapsColumnsToDictionaryByName()
+        public async Task Materialize_MapsColumnsToDictionaryByName()
         {
             using var reader = BuildTable().CreateDataReader();
 
-            var rows = RowMaterializer.Materialize(reader);
+            var rows = await RowMaterializer.MaterializeAsync(reader);
 
-            Assert.AreEqual(2, rows.Count);
+            Assert.HasCount(2, rows);
             Assert.AreEqual(1, rows[0]["Id"]);
             Assert.AreEqual("Bolt", rows[0]["Name"]);
             Assert.AreEqual(5.00m, rows[0]["Price"]);
         }
 
         [TestMethod]
-        public void Materialize_MapsDbNullToNull()
+        public async Task Materialize_MapsDbNullToNull()
         {
             using var reader = BuildTable().CreateDataReader();
 
-            var rows = RowMaterializer.Materialize(reader);
+            var rows = await RowMaterializer.MaterializeAsync(reader);
 
             Assert.AreEqual("Nut", rows[1]["Name"]);
             Assert.IsNull(rows[1]["Price"]);
         }
 
         [TestMethod]
-        public void Materialize_EmptyReader_ReturnsEmpty()
+        public async Task Materialize_EmptyReader_ReturnsEmpty()
         {
             var empty = new DataTable();
             empty.Columns.Add("Id", typeof(int));
             using var reader = empty.CreateDataReader();
 
-            var rows = RowMaterializer.Materialize(reader);
+            var rows = await RowMaterializer.MaterializeAsync(reader);
 
             Assert.IsEmpty(rows);
         }

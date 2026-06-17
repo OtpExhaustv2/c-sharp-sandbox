@@ -1,4 +1,3 @@
-using System.Data;
 using Microsoft.Data.SqlClient;
 
 namespace Sandbox.Core.Sql
@@ -13,18 +12,20 @@ namespace Sandbox.Core.Sql
 
         public SqlServerExecutor(string connectionString) => _connectionString = connectionString;
 
-        public IReadOnlyList<IReadOnlyDictionary<string, object?>> Execute(CompiledSql query)
+        public async Task<IReadOnlyList<IReadOnlyDictionary<string, object?>>> ExecuteAsync(
+            CompiledSql query,
+            CancellationToken cancellationToken = default)
         {
-            using var connection = new SqlConnection(_connectionString);
-            connection.Open();
+            await using var connection = new SqlConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
 
-            using var command = connection.CreateCommand();
+            await using var command = connection.CreateCommand();
             command.CommandText = query.Sql;
             foreach (var (name, value) in query.Parameters)
                 command.Parameters.AddWithValue(name, value ?? DBNull.Value);
 
-            using var reader = command.ExecuteReader();
-            return RowMaterializer.Materialize(reader);
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            return await RowMaterializer.MaterializeAsync(reader, cancellationToken);
         }
     }
 }

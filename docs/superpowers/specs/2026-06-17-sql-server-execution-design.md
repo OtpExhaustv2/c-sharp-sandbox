@@ -24,7 +24,10 @@ database.
   (created if absent). **Demo table:** `Products`.
 - **Result shape:** `IReadOnlyList<IReadOnlyDictionary<string, object?>>` — one dictionary per
   row, column name → value, `DBNull` mapped to `null`.
-- **Testing:** the `RowMaterializer` is unit-tested with a fake `IDataReader` (no live DB);
+- **Async API:** `ExecuteAsync` / `MaterializeAsync`, both taking a `CancellationToken` —
+  idiomatic for DB I/O (no thread blocked per call) and directly consumable by the async
+  `sandbox-api`.
+- **Testing:** the `RowMaterializer` is unit-tested with a fake `DbDataReader` (no live DB);
   real end-to-end execution is verified by a runnable console demo (manual).
 
 ### Non-goals (YAGNI)
@@ -32,7 +35,7 @@ database.
 - No writes through the builder (it only emits `SELECT`); the only non-`SELECT` SQL is the
   idempotent demo bootstrap (DDL + seed).
 - No connection pooling/retry/transaction management beyond what `SqlConnection` gives by
-  default; no async API in v1 (synchronous `Execute`).
+  default.
 - No ORM-style change tracking, no mapping to POCOs, no multi-result-set handling.
 - No automated integration tests against a live server (CI has none).
 
@@ -42,8 +45,8 @@ database.
 
 | File | Responsibility |
 |------|----------------|
-| `RowMaterializer.cs` | Pure mapping: `static IReadOnlyList<IReadOnlyDictionary<string, object?>> Materialize(IDataReader reader)`. For each row, for each column `i`: `dict[reader.GetName(i)] = reader.IsDBNull(i) ? null : reader.GetValue(i)`. Takes the `IDataReader` **interface** (not the sealed `SqlDataReader`) so it is unit-testable with a fake. |
-| `SqlServerExecutor.cs` | `SqlServerExecutor(string connectionString)`; `IReadOnlyList<IReadOnlyDictionary<string, object?>> Execute(CompiledSql query)`. Opens a `SqlConnection`, creates a `SqlCommand` with `CommandText = query.Sql`, adds each parameter from `query.Parameters` (`command.Parameters.AddWithValue(name, value ?? DBNull.Value)`), runs `ExecuteReader`, returns `RowMaterializer.Materialize(reader)`. |
+| `RowMaterializer.cs` | Pure mapping: `static Task<IReadOnlyList<IReadOnlyDictionary<string, object?>>> MaterializeAsync(DbDataReader reader, CancellationToken)`. For each row (`await reader.ReadAsync`), for each column `i`: `dict[reader.GetName(i)] = await reader.IsDBNullAsync(i) ? null : reader.GetValue(i)`. Takes the `DbDataReader` **base type** (not the sealed `SqlDataReader`), which both `SqlDataReader` and the test's `DataTableReader` derive from — so it is unit-testable without a DB. |
+| `SqlServerExecutor.cs` | `SqlServerExecutor(string connectionString)`; `Task<IReadOnlyList<IReadOnlyDictionary<string, object?>>> ExecuteAsync(CompiledSql query, CancellationToken)`. `await using` a `SqlConnection` (`OpenAsync`), creates a `SqlCommand` with `CommandText = query.Sql`, adds each parameter (`AddWithValue(name, value ?? DBNull.Value)`), runs `ExecuteReaderAsync`, returns `await RowMaterializer.MaterializeAsync(reader)`. |
 
 `Sandbox.Core.csproj` adds `<PackageReference Include="Microsoft.Data.SqlClient" />` (latest
 stable for net10.0).
@@ -95,9 +98,9 @@ Server=DESKTOP-424PEIH\SQLEXPRESS;Database=SandboxLinqSql;Trusted_Connection=Tru
 ```
 SqlQuery.From("Products").Where(r => (decimal)r["Price"] > 50m).OrderByDescending(r => r["Price"]).ToSql()
    → CompiledSql { Sql, Parameters }
-   → SqlServerExecutor.Execute(compiled)
-        SqlCommand(CommandText = Sql); AddWithValue(@pN, value ?? DBNull.Value); ExecuteReader()
-   → RowMaterializer.Materialize(reader)
+   → await SqlServerExecutor.ExecuteAsync(compiled)
+        SqlCommand(CommandText = Sql); AddWithValue(@pN, value ?? DBNull.Value); ExecuteReaderAsync()
+   → await RowMaterializer.MaterializeAsync(reader)
    → IReadOnlyList<IReadOnlyDictionary<string, object?>>
    → demo prints: { Id=4, Name="Bolt", Price=5.00, ... }
 ```
@@ -112,7 +115,7 @@ SqlQuery.From("Products").Where(r => (decimal)r["Price"] > 50m).OrderByDescendin
 
 ## Testing — MSTest (`Sandbox.Tests`)
 
-- **`RowMaterializerTests`** (no live DB): drive `Materialize` with a fake `IDataReader`
+- **`RowMaterializerTests`** (no live DB): drive `MaterializeAsync` with a fake `DbDataReader`
   obtained from an in-memory `DataTable.CreateDataReader()`:
   - column names become dictionary keys, in order;
   - `DBNull` cells map to `null`;

@@ -10,6 +10,12 @@
 
 **Spec:** `docs/superpowers/specs/2026-06-17-sql-server-execution-design.md`
 
+> **Post-implementation note:** the executor and materializer were made **async** during review
+> (`ExecuteAsync`/`MaterializeAsync` with `CancellationToken`; `MaterializeAsync` takes
+> `DbDataReader`, not `IDataReader`; the demo uses `OpenAsync`/`ExecuteReaderAsync`/`ExecuteNonQueryAsync`
+> and `Program.cs` awaits `Main`). The synchronous signatures shown in the task code blocks below
+> are the original draft; the spec reflects the async design that shipped.
+
 ---
 
 ## File Structure

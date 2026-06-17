@@ -13,12 +13,12 @@ namespace Sandbox.examples
         private static string DbConnectionString =>
             $"Server={Server};Database={Database};Trusted_Connection=True;Encrypt=False";
 
-        public static void Main()
+        public static async Task Main()
         {
             try
             {
-                Bootstrap();
-                RunQueries();
+                await BootstrapAsync();
+                await RunQueriesAsync();
             }
             catch (SqlException ex)
             {
@@ -27,51 +27,51 @@ namespace Sandbox.examples
             }
         }
 
-        private static void RunQueries()
+        private static async Task RunQueriesAsync()
         {
             var executor = new SqlServerExecutor(DbConnectionString);
 
             Console.WriteLine("=== Price > 50, cheapest first ===");
-            Print(SqlQuery.From("Products")
+            await PrintAsync(SqlQuery.From("Products")
                 .Where(r => (decimal)r["Price"] > 50m)
                 .OrderBy(r => r["Price"])
                 .ToSql(), executor);
 
             Console.WriteLine("\n=== Name contains 'o', top 2 by price desc ===");
-            Print(SqlQuery.From("Products")
+            await PrintAsync(SqlQuery.From("Products")
                 .Where(r => ((string)r["Name"]).Contains("o"))
                 .OrderByDescending(r => r["Price"])
                 .Take(2)
                 .ToSql(), executor);
 
             Console.WriteLine("\n=== Available tools, projected to Name + Price ===");
-            Print(SqlQuery.From("Products")
+            await PrintAsync(SqlQuery.From("Products")
                 .Where(r => (string)r["Category"] == "Tools" && (bool)r["IsAvailable"] == true)
                 .Select(r => new { Name = r["Name"], Price = r["Price"] })
                 .ToSql(), executor);
         }
 
-        private static void Print(CompiledSql query, SqlServerExecutor executor)
+        private static async Task PrintAsync(CompiledSql query, SqlServerExecutor executor)
         {
             Console.WriteLine($"SQL: {query.Sql}");
-            var rows = executor.Execute(query);
+            var rows = await executor.ExecuteAsync(query);
             foreach (var row in rows)
                 Console.WriteLine("  " + string.Join(", ", row.Select(kv => $"{kv.Key}={kv.Value}")));
             Console.WriteLine($"  ({rows.Count} row(s))");
         }
 
-        private static void Bootstrap()
+        private static async Task BootstrapAsync()
         {
-            using (var master = new SqlConnection(MasterConnectionString))
+            await using (var master = new SqlConnection(MasterConnectionString))
             {
-                master.Open();
-                ExecuteNonQuery(master, $"IF DB_ID('{Database}') IS NULL CREATE DATABASE [{Database}];");
+                await master.OpenAsync();
+                await ExecuteNonQueryAsync(master, $"IF DB_ID('{Database}') IS NULL CREATE DATABASE [{Database}];");
             }
 
-            using var db = new SqlConnection(DbConnectionString);
-            db.Open();
+            await using var db = new SqlConnection(DbConnectionString);
+            await db.OpenAsync();
 
-            ExecuteNonQuery(db, """
+            await ExecuteNonQueryAsync(db, """
                 IF OBJECT_ID('dbo.Products', 'U') IS NULL
                 CREATE TABLE [Products] (
                     [Id]            INT            NOT NULL PRIMARY KEY,
@@ -84,8 +84,8 @@ namespace Sandbox.examples
                 """);
 
             // Deterministic re-seed so repeated runs are idempotent.
-            ExecuteNonQuery(db, "DELETE FROM [Products];");
-            ExecuteNonQuery(db, """
+            await ExecuteNonQueryAsync(db, "DELETE FROM [Products];");
+            await ExecuteNonQueryAsync(db, """
                 INSERT INTO [Products] ([Id],[Name],[Price],[Category],[StockQuantity],[IsAvailable]) VALUES
                     (1, N'Widget',   30.00, N'Tools',     12, 1),
                     (2, N'Sprocket', 10.00, N'Tools',      0, 0),
@@ -98,11 +98,11 @@ namespace Sandbox.examples
             Console.WriteLine($"Database [{Database}] ready with seeded [Products].\n");
         }
 
-        private static void ExecuteNonQuery(SqlConnection connection, string sql)
+        private static async Task ExecuteNonQueryAsync(SqlConnection connection, string sql)
         {
-            using var command = connection.CreateCommand();
+            await using var command = connection.CreateCommand();
             command.CommandText = sql;
-            command.ExecuteNonQuery();
+            await command.ExecuteNonQueryAsync();
         }
     }
 }
