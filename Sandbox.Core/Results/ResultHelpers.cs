@@ -1,4 +1,4 @@
-﻿namespace Sandbox.Core
+﻿namespace Sandbox.Core.Results
 {
 
     /// <summary>

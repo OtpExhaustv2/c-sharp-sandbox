@@ -1,6 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 
-namespace Sandbox.Core
+namespace Sandbox.Core.Results
 {
     public readonly struct Result<T, TError> : IEquatable<Result<T, TError>>
     {

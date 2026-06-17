@@ -13,7 +13,10 @@
       "Bash(dotnet add *)",
       "Bash(git commit *)",
       "PowerShell(Copy-Item \"G:\\\\Programming\\\\c-sharp\\\\Sandbox\\\\Sandbox\\\\utils\\\\Result.cs\" \"G:\\\\Programming\\\\c-sharp\\\\Sandbox\\\\Sandbox.Core\\\\Result.cs\")",
-      "PowerShell(Copy-Item \"G:\\\\Programming\\\\c-sharp\\\\Sandbox\\\\Sandbox\\\\utils\\\\ResultHelpers.cs\" \"G:\\\\Programming\\\\c-sharp\\\\Sandbox\\\\Sandbox.Core\\\\ResultHelpers.cs\")"
+      "PowerShell(Copy-Item \"G:\\\\Programming\\\\c-sharp\\\\Sandbox\\\\Sandbox\\\\utils\\\\ResultHelpers.cs\" \"G:\\\\Programming\\\\c-sharp\\\\Sandbox\\\\Sandbox.Core\\\\ResultHelpers.cs\")",
+      "Bash(New-Item -ItemType Directory -Force Sandbox.Core/Results)",
+      "Bash(Out-Null)",
+      "Bash(git mv *)"
     ]
   }
 }
