@@ -3,20 +3,8 @@
     "allow": [
       "Bash(cp:*)",
       "Bash(dotnet build:*)",
-      "Bash(git checkout *)",
       "Bash(git add *)",
-      "Bash(git commit -m ' *)",
-      "Bash(dotnet --version)",
-      "Bash(dotnet new *)",
-      "Bash(Remove-Item \"G:\\\\Programming\\\\c-sharp\\\\Sandbox\\\\Sandbox.Core\\\\Class1.cs\" -Force)",
-      "Bash(dotnet sln *)",
-      "Bash(dotnet add *)",
-      "Bash(git commit *)",
-      "PowerShell(Copy-Item \"G:\\\\Programming\\\\c-sharp\\\\Sandbox\\\\Sandbox\\\\utils\\\\Result.cs\" \"G:\\\\Programming\\\\c-sharp\\\\Sandbox\\\\Sandbox.Core\\\\Result.cs\")",
-      "PowerShell(Copy-Item \"G:\\\\Programming\\\\c-sharp\\\\Sandbox\\\\Sandbox\\\\utils\\\\ResultHelpers.cs\" \"G:\\\\Programming\\\\c-sharp\\\\Sandbox\\\\Sandbox.Core\\\\ResultHelpers.cs\")",
-      "Bash(New-Item -ItemType Directory -Force Sandbox.Core/Results)",
-      "Bash(Out-Null)",
-      "Bash(git mv *)"
+      "Bash(git commit -m ' *)"
     ]
   }
 }

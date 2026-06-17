@@ -88,7 +88,13 @@ existing projects). No external package dependencies.
 Into `Sandbox.Core/Results/`, all under namespace **`Sandbox.Core.Results`**:
 
 - `Result<T,TError>` + `ResultExtensions` (lift-and-shift from `Sandbox/utils/Result.cs`).
-- `ResultHelpers`, `Unit`, `ApiError` (from `Sandbox/utils/ResultHelpers.cs`).
+- `ResultHelpers`, `Unit` (from `Sandbox/utils/ResultHelpers.cs`).
+
+The `ApiError` record that lived alongside `ResultHelpers` is **not** moved into Core: it is an
+app-domain error type, not a `Result` primitive, and is dead from Core's perspective — the
+console examples all sit in `namespace Sandbox.examples`, which already declares its own
+`Sandbox.examples.ApiError` (so every example usage binds to that), and the api uses
+`DatabaseError`. It is dropped during the move; the example keeps its local copy.
 
 The duplicate copies in **both** `Sandbox/utils/` and `sandbox-api/Utils/` are **deleted**.
 

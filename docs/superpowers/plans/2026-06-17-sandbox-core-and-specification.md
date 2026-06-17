@@ -4,7 +4,7 @@
 
 **Goal:** Extract the duplicated `Result` ecosystem into a new `Sandbox.Core` class library, then add a composable Specification system (built on `System.Linq.Expressions`) to that library, evaluated in-memory and covered by MSTest.
 
-**Architecture:** New `Sandbox.Core` classlib organized one folder per concept, namespace mirroring folder: `Results/` holds `Result`/`ResultExtensions`/`ResultHelpers`/`Unit`/`ApiError` (ns `Sandbox.Core.Results`); `Specifications/` holds the spec engine (ns `Sandbox.Core.Specifications`). The console `Sandbox`, web `sandbox-api`, and a new `Sandbox.Tests` (MSTest) project all reference the library. The spec engine combines `Expression<Func<T,bool>>` predicates via parameter-rebinding (`ExpressionVisitor`) and a `SpecificationEvaluator` applies filter/order/page/project over `IEnumerable<T>`.
+**Architecture:** New `Sandbox.Core` classlib organized one folder per concept, namespace mirroring folder: `Results/` holds `Result`/`ResultExtensions`/`ResultHelpers`/`Unit` (ns `Sandbox.Core.Results`); `Specifications/` holds the spec engine (ns `Sandbox.Core.Specifications`). The console `Sandbox`, web `sandbox-api`, and a new `Sandbox.Tests` (MSTest) project all reference the library. The spec engine combines `Expression<Func<T,bool>>` predicates via parameter-rebinding (`ExpressionVisitor`) and a `SpecificationEvaluator` applies filter/order/page/project over `IEnumerable<T>`.
 
 **Tech Stack:** C# / .NET 10 (`net10.0`), `System.Linq.Expressions`, MSTest (`Microsoft.NET.Test.Sdk`, `MSTest.TestAdapter`, `MSTest.TestFramework`), `.slnx` solution format.
 
@@ -17,7 +17,8 @@
 **New project `Sandbox.Core/`** — one folder per concept; **namespace mirrors folder**:
 - `Sandbox.Core.csproj` — classlib, `net10.0`, nullable + implicit usings.
 - `Results/Result.cs` — `Result<T,TError>` + `ResultExtensions` (moved, ns `Sandbox.Core.Results`).
-- `Results/ResultHelpers.cs` — `ResultHelpers` + `Unit` + `ApiError` (moved, ns `Sandbox.Core.Results`).
+- `Results/ResultHelpers.cs` — `ResultHelpers` + `Unit` (moved, ns `Sandbox.Core.Results`). The
+  `ApiError` record is NOT moved into Core (app-domain, unused in Core; examples keep their own).
 - `Specifications/ExpressionExtensions.cs` — `ParameterReplacer` + `And`/`Or`/`Not` (ns `Sandbox.Core.Specifications`).
 - `Specifications/Specification.cs` — `Specification<T>`, `AdHocSpecification<T>`, `Specification<T,TResult>`.
 - `Specifications/SpecificationEvaluator.cs` — evaluator.
@@ -144,11 +145,13 @@ Leave all type bodies (`Result<T,TError>`, `ResultExtensions`) and the
 
 - [ ] **Step 2: Move `ResultHelpers.cs` into the library**
 
-Move `Sandbox/utils/ResultHelpers.cs` to `Sandbox.Core/Results/ResultHelpers.cs`. Make exactly two edits:
+Move `Sandbox/utils/ResultHelpers.cs` to `Sandbox.Core/Results/ResultHelpers.cs`. Make these edits:
 - Delete the top line `using Sandbox.utils;` (Result now lives in the same namespace).
 - Change `namespace Sandbox.Utils` → `namespace Sandbox.Core.Results`.
+- Delete the `public record ApiError(...)` declaration at the bottom of the file (app-domain
+  type, unused in Core; the console example keeps its own `Sandbox.examples.ApiError`).
 
-Leave `ResultHelpers`, `Unit`, and `ApiError` bodies unchanged.
+Leave `ResultHelpers` and `Unit` bodies unchanged.
 
 - [ ] **Step 3: Delete the duplicate copies**
 
