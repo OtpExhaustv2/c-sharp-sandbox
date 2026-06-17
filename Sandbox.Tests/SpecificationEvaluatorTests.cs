@@ -55,7 +55,7 @@ namespace Sandbox.Tests
         {
             var result = SpecificationEvaluator.Evaluate(new List<Widget>(), new InStockSpec()).ToList();
 
-            Assert.AreEqual(0, result.Count);
+            Assert.IsEmpty(result);
         }
     }
 }

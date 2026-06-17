@@ -23,7 +23,7 @@ namespace Sandbox.Core.Specifications
             this Expression<Func<T, bool>> expression)
         {
             var parameter = Expression.Parameter(typeof(T), "x");
-            var body = Expression.Not(new ParameterReplacer(parameter).Visit(expression.Body)!);
+            var body = Expression.Not(Rebind(expression, parameter));
             return Expression.Lambda<Func<T, bool>>(body, parameter);
         }
 
@@ -33,18 +33,29 @@ namespace Sandbox.Core.Specifications
             Func<Expression, Expression, BinaryExpression> merge)
         {
             var parameter = Expression.Parameter(typeof(T), "x");
-            var leftBody = new ParameterReplacer(parameter).Visit(left.Body)!;
-            var rightBody = new ParameterReplacer(parameter).Visit(right.Body)!;
+            var leftBody = Rebind(left, parameter);
+            var rightBody = Rebind(right, parameter);
             return Expression.Lambda<Func<T, bool>>(merge(leftBody, rightBody), parameter);
         }
 
+        // Rewrite a lambda's body so its single parameter is replaced by `parameter`,
+        // leaving any nested lambda parameters (e.g. inside `.Any(n => ...)`) untouched.
+        private static Expression Rebind<T>(Expression<Func<T, bool>> source, ParameterExpression parameter)
+            => new ParameterReplacer(source.Parameters[0], parameter).Visit(source.Body)!;
+
         private sealed class ParameterReplacer : ExpressionVisitor
         {
-            private readonly ParameterExpression _parameter;
+            private readonly ParameterExpression _target;
+            private readonly ParameterExpression _replacement;
 
-            public ParameterReplacer(ParameterExpression parameter) => _parameter = parameter;
+            public ParameterReplacer(ParameterExpression target, ParameterExpression replacement)
+            {
+                _target = target;
+                _replacement = replacement;
+            }
 
-            protected override Expression VisitParameter(ParameterExpression node) => _parameter;
+            protected override Expression VisitParameter(ParameterExpression node)
+                => node == _target ? _replacement : node;
         }
     }
 }

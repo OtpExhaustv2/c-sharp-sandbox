@@ -34,6 +34,8 @@ namespace Sandbox.Core.Specifications
             Take = take;
         }
 
+        // Compiles the criteria on each call. Fine for one-off checks; for filtering a
+        // sequence prefer SpecificationEvaluator.Evaluate, which compiles once per query.
         public bool IsSatisfiedBy(T entity)
             => Criteria is null || Criteria.Compile()(entity);
 
