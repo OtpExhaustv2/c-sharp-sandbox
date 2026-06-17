@@ -136,10 +136,14 @@ namespace Sandbox.Tests
         public void Where_CastWrappedNull_TranslatesToIsNull()
         {
             // `(string)null` is converted to object for the comparison, wrapping the null
-            // constant in a Convert node — IsNull must see through it.
+            // constant in a Convert node — IsNull must see through it. The object == string
+            // reference comparison (CS0252) is exactly what produces that Convert, so it is
+            // deliberate here.
+#pragma warning disable CS0252
             var compiled = SqlQuery.From("Orders")
                 .Where(r => r["CompletedAt"] == (string)null!)
                 .ToSql();
+#pragma warning restore CS0252
 
             Assert.AreEqual("SELECT * FROM [Orders] WHERE [CompletedAt] IS NULL", compiled.Sql);
             Assert.IsEmpty(compiled.Parameters);
@@ -154,7 +158,7 @@ namespace Sandbox.Tests
                 .ToSql();
 
             Assert.AreEqual("SELECT * FROM [Products] ORDER BY [Category], [Price] DESC", compiled.Sql);
-            Assert.AreEqual(0, compiled.Parameters.Count);
+            Assert.IsEmpty(compiled.Parameters);
         }
 
         [TestMethod]
