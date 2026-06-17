@@ -1,7 +1,7 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Sandbox.Core.Specifications;
 
-namespace Sandbox.Tests
+namespace Sandbox.Tests.Specifications
 {
     [TestClass]
     public class SpecificationEvaluatorTests

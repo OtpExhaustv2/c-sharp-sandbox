@@ -3,7 +3,7 @@ using sandbox_api.Data;
 using sandbox_api.Repositories;
 using sandbox_api.Specifications;
 
-namespace Sandbox.Tests
+namespace Sandbox.Tests.Specifications
 {
     [TestClass]
     public class ProductRepositorySpecificationTests
