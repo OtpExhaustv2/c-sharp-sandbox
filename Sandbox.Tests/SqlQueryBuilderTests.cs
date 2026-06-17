@@ -196,5 +196,51 @@ namespace Sandbox.Tests
             Assert.AreEqual(0, compiled.Parameters["@p0"]);
             Assert.AreEqual(5, compiled.Parameters["@p1"]);
         }
+
+        [TestMethod]
+        public void Select_AnonymousType_EmitsColumnList()
+        {
+            var compiled = SqlQuery.From("Products")
+                .Select(r => new { Id = r["Id"], Name = r["Name"] })
+                .ToSql();
+
+            Assert.AreEqual("SELECT [Id], [Name] FROM [Products]", compiled.Sql);
+        }
+
+        [TestMethod]
+        public void Composed_Where_Order_Page_Project_NumbersParamsInRenderOrder()
+        {
+            var compiled = SqlQuery.From("Products")
+                .Where(r => (decimal)r["Price"] > 50m)
+                .OrderByDescending(r => r["Price"])
+                .Skip(10)
+                .Take(5)
+                .Select(r => new { Name = r["Name"] })
+                .ToSql();
+
+            Assert.AreEqual(
+                "SELECT [Name] FROM [Products] WHERE [Price] > @p0 ORDER BY [Price] DESC " +
+                "OFFSET @p1 ROWS FETCH NEXT @p2 ROWS ONLY",
+                compiled.Sql);
+            Assert.AreEqual(50m, compiled.Parameters["@p0"]);
+            Assert.AreEqual(10, compiled.Parameters["@p1"]);
+            Assert.AreEqual(5, compiled.Parameters["@p2"]);
+        }
+
+        [TestMethod]
+        public void ComputedProjection_Throws()
+        {
+            Assert.ThrowsExactly<NotSupportedException>(() =>
+                SqlQuery.From("Products")
+                    .Select(r => new { Total = (decimal)r["Price"] + 1m })
+                    .ToSql());
+        }
+
+        [TestMethod]
+        public void UnsupportedOperator_Throws()
+        {
+            Assert.ThrowsExactly<NotSupportedException>(() =>
+                SqlQuery.From("Products").Distinct().ToSql());
+        }
     }
 }

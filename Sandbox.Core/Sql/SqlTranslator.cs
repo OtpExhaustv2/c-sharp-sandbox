@@ -58,6 +58,11 @@ namespace Sandbox.Core.Sql
                     model.Take = GetInt(call.Arguments[1]);
                     break;
 
+                case "Select":
+                    model.SelectColumns.AddRange(
+                        PredicateTranslator.ProjectionColumns(GetLambda(call.Arguments[1])));
+                    break;
+
                 default:
                     throw new NotSupportedException($"Unsupported query operator: {call.Method.Name}");
             }
