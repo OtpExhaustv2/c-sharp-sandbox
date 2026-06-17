@@ -1,6 +1,7 @@
 ﻿using sandbox_api.Data;
 using sandbox_api.Models;
 using Sandbox.Core.Results;
+using Sandbox.Core.Specifications;
 
 namespace sandbox_api.Repositories
 {
@@ -39,6 +40,14 @@ namespace sandbox_api.Repositories
                     ? Result<Product, DatabaseError>.Success(product)
                     : new NotFoundError("Product", id.ToString())
             );
+        }
+
+        public async Task<Result<List<Product>, DatabaseError>> GetBySpecificationAsync(
+            Specification<Product> spec)
+        {
+            var result = await GetAllProductsAsync();
+            return result.Map(products =>
+                SpecificationEvaluator.Evaluate(products, spec).ToList());
         }
 
         public async Task<Result<List<Product>, DatabaseError>> GetProductsByCategoryAsync(string category)

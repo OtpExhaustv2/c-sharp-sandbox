@@ -1,5 +1,6 @@
 ﻿using sandbox_api.Models;
 using Sandbox.Core.Results;
+using Sandbox.Core.Specifications;
 
 namespace sandbox_api.Repositories
 {
@@ -13,5 +14,6 @@ namespace sandbox_api.Repositories
         Task<Result<Product, DatabaseError>> UpdateProductAsync(int id, string? name, string? description, decimal? price, int? stockQuantity, string? category);
         Task<Result<Unit, DatabaseError>> AdjustStockAsync(int productId, int quantityChange);
         Task<Result<Unit, DatabaseError>> ReserveStockAsync(int productId, int quantity);
+        Task<Result<List<Product>, DatabaseError>> GetBySpecificationAsync(Specification<Product> spec);
     }
 }
