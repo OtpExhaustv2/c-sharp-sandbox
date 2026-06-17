@@ -60,6 +60,28 @@ namespace Sandbox.examples
                 streamed++;
             }
             Console.WriteLine($"  (streamed {streamed} row(s))");
+
+            Console.WriteLine("\n=== Context (DbContext-lite): execute directly from the query ===");
+            var ctx = new SqlServerQueryContext(DbConnectionString);
+
+            var availableTools = ctx.Query("Products")
+                .Where(r => (string)r["Category"] == "Tools" && (bool)r["IsAvailable"] == true);
+
+            var toolList = await availableTools.ToListAsync();
+            Console.WriteLine($"ToListAsync: {toolList.Count} available tool(s)");
+
+            var cheapest = await ctx.Query("Products").OrderBy(r => r["Price"]).FirstOrDefaultAsync();
+            Console.WriteLine($"FirstOrDefaultAsync cheapest: {cheapest?["Name"]} ({cheapest?["Price"]})");
+
+            var availableToolCount = await availableTools.CountAsync();
+            Console.WriteLine($"CountAsync available tools: {availableToolCount}");
+
+            var anyHardware = await ctx.Query("Products").Where(r => (string)r["Category"] == "Hardware").AnyAsync();
+            Console.WriteLine($"AnyAsync hardware: {anyHardware}");
+
+            Console.WriteLine("Streaming via context:");
+            await foreach (var row in ctx.Query("Products").OrderByDescending(r => r["Price"]).AsAsyncEnumerable())
+                Console.WriteLine($"  {row["Name"]} = {row["Price"]}");
         }
 
         private static async Task PrintAsync(CompiledSql query, SqlServerExecutor executor)

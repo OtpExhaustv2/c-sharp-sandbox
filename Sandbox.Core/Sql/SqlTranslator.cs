@@ -12,6 +12,19 @@ namespace Sandbox.Core.Sql
     {
         public static CompiledSql Translate(Expression expression, string table)
         {
+            var (model, parameters) = BuildModel(expression, table);
+            return new CompiledSql(Render(model, parameters), parameters.ToDictionary());
+        }
+
+        public static CompiledSql TranslateCount(Expression expression, string table)
+        {
+            var (model, parameters) = BuildModel(expression, table);
+            return new CompiledSql(RenderCount(model), parameters.ToDictionary());
+        }
+
+        private static (SqlQueryModel Model, SqlParameterBag Parameters) BuildModel(
+            Expression expression, string table)
+        {
             var model = new SqlQueryModel { Table = table };
             var parameters = new SqlParameterBag();
 
@@ -28,7 +41,7 @@ namespace Sandbox.Core.Sql
             foreach (var call in calls)
                 Apply(call, model, parameters);
 
-            return new CompiledSql(Render(model, parameters), parameters.ToDictionary());
+            return (model, parameters);
         }
 
         private static void Apply(MethodCallExpression call, SqlQueryModel model, SqlParameterBag parameters)
@@ -88,15 +101,7 @@ namespace Sandbox.Core.Sql
             sb.Append(m.SelectColumns.Count == 0 ? "*" : string.Join(", ", m.SelectColumns));
             sb.Append(" FROM [").Append(m.Table).Append(']');
 
-            if (m.WhereFragments.Count > 0)
-            {
-                // A single fragment is already self-contained; multiple Where() calls are
-                // AND-combined and each wrapped so their internal precedence can't leak.
-                var where = m.WhereFragments.Count == 1
-                    ? m.WhereFragments[0]
-                    : string.Join(" AND ", m.WhereFragments.Select(f => $"({f})"));
-                sb.Append(" WHERE ").Append(where);
-            }
+            AppendWhere(sb, m);
 
             var hasPaging = m.Skip.HasValue || m.Take.HasValue;
 
@@ -120,6 +125,29 @@ namespace Sandbox.Core.Sql
             }
 
             return sb.ToString();
+        }
+
+        private static string RenderCount(SqlQueryModel m)
+        {
+            if (m.Skip.HasValue || m.Take.HasValue)
+                throw new NotSupportedException("CountAsync does not support Skip/Take in v1.");
+
+            var sb = new StringBuilder();
+            sb.Append("SELECT COUNT(*) FROM [").Append(m.Table).Append(']');
+            AppendWhere(sb, m);
+            return sb.ToString();
+        }
+
+        // Appends " WHERE <fragment>" (multiple Where() calls are AND-combined, each wrapped).
+        private static void AppendWhere(StringBuilder sb, SqlQueryModel m)
+        {
+            if (m.WhereFragments.Count == 0)
+                return;
+
+            var where = m.WhereFragments.Count == 1
+                ? m.WhereFragments[0]
+                : string.Join(" AND ", m.WhereFragments.Select(f => $"({f})"));
+            sb.Append(" WHERE ").Append(where);
         }
     }
 
