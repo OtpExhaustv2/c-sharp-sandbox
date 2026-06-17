@@ -40,6 +40,16 @@ namespace Sandbox.Core.Sql
                         PredicateTranslator.Translate(GetLambda(call.Arguments[1]), parameters));
                     break;
 
+                case "OrderBy":
+                case "ThenBy":
+                    model.OrderBy.Add((PredicateTranslator.Column(GetLambda(call.Arguments[1])), false));
+                    break;
+
+                case "OrderByDescending":
+                case "ThenByDescending":
+                    model.OrderBy.Add((PredicateTranslator.Column(GetLambda(call.Arguments[1])), true));
+                    break;
+
                 default:
                     throw new NotSupportedException($"Unsupported query operator: {call.Method.Name}");
             }

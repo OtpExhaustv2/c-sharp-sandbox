@@ -144,5 +144,17 @@ namespace Sandbox.Tests
             Assert.AreEqual("SELECT * FROM [Orders] WHERE [CompletedAt] IS NULL", compiled.Sql);
             Assert.IsEmpty(compiled.Parameters);
         }
+
+        [TestMethod]
+        public void OrderBy_ThenByDescending_EmitsOrderByClause()
+        {
+            var compiled = SqlQuery.From("Products")
+                .OrderBy(r => r["Category"])
+                .ThenByDescending(r => r["Price"])
+                .ToSql();
+
+            Assert.AreEqual("SELECT * FROM [Products] ORDER BY [Category], [Price] DESC", compiled.Sql);
+            Assert.AreEqual(0, compiled.Parameters.Count);
+        }
     }
 }
