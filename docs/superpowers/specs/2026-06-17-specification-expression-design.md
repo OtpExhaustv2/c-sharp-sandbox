@@ -20,8 +20,11 @@ Two coupled deliverables:
 
 ### Decisions locked in
 
-- Library name + root namespace: **`Sandbox.Core`**; spec engine under
-  `Sandbox.Core.Specifications`.
+- Library name + root namespace: **`Sandbox.Core`**. **Each concept gets its own folder,
+  and the namespace mirrors the folder** (the lib is expected to grow well beyond Result +
+  Specifications). Result ecosystem → `Sandbox.Core/Results/` (ns `Sandbox.Core.Results`);
+  spec engine → `Sandbox.Core/Specifications/` (ns `Sandbox.Core.Specifications`). Plural
+  `Results` avoids clashing with the `Result<,>` type name.
 - Specification scope: **predicates + query shaping** (criteria, ordering, paging, projection).
 - Evaluation target: **in-memory `IEnumerable<T>`** — no EF Core, no `IQueryable`.
 - `DatabaseError` hierarchy **stays in `sandbox-api`** (data-layer error taxonomy, not
@@ -58,10 +61,11 @@ on one namespace.
 
 ```
 Sandbox.slnx
-├── Sandbox.Core/            (NEW) class library, net10.0
-│   ├── Result.cs                  Result<T,TError> + ResultExtensions
-│   ├── ResultHelpers.cs           ResultHelpers + Unit + ApiError
-│   └── Specifications/
+├── Sandbox.Core/            (NEW) class library, net10.0 — one folder per concept
+│   ├── Results/                   (ns Sandbox.Core.Results)
+│   │   ├── Result.cs                  Result<T,TError> + ResultExtensions
+│   │   └── ResultHelpers.cs           ResultHelpers + Unit + ApiError
+│   └── Specifications/            (ns Sandbox.Core.Specifications)
 │       ├── ExpressionExtensions.cs   ParameterReplacer + And/Or/Not on Expression
 │       ├── Specification.cs          Specification<T>, Specification<T,TResult>
 │       └── SpecificationEvaluator.cs
@@ -72,12 +76,16 @@ Sandbox.slnx
 └── Sandbox.Tests/           (NEW) MSTest    → references Sandbox.Core
 ```
 
+Folders are concept boundaries; the namespace always mirrors the folder path. As more
+concepts land (e.g. `Sandbox.Core/Validation/`, `Sandbox.Core/Pagination/`), each gets its
+own folder + matching namespace.
+
 `Sandbox.Core.csproj`: `net10.0`, `ImplicitUsings` enable, `Nullable` enable (match
 existing projects). No external package dependencies.
 
 ### What moves into `Sandbox.Core`
 
-All under the single root namespace **`Sandbox.Core`**:
+Into `Sandbox.Core/Results/`, all under namespace **`Sandbox.Core.Results`**:
 
 - `Result<T,TError>` + `ResultExtensions` (lift-and-shift from `Sandbox/utils/Result.cs`).
 - `ResultHelpers`, `Unit`, `ApiError` (from `Sandbox/utils/ResultHelpers.cs`).
@@ -92,12 +100,12 @@ Repointing is mostly mechanical:
 - Delete: `Sandbox/utils/Result.cs`, `Sandbox/utils/ResultHelpers.cs`,
   `sandbox-api/Utils/Result.cs`, `sandbox-api/Utils/ResultHelpers.cs`.
 - Replace `using Sandbox.utils;` / `using Sandbox.Utils;` / `using sandbox_api.Utils;`
-  with `using Sandbox.Core;` across the **12 files** that import them
+  with `using Sandbox.Core.Results;` across the **12 files** that import them
   (6 in `sandbox-api/Repositories`, 5 in `Sandbox/examples`, plus the moved files themselves).
 - Fix fully-qualified references: `Utils.Unit` in the repositories (e.g.
-  `Result<Utils.Unit, DatabaseError>`, `Utils.Unit.Value`) → `Unit` with `using Sandbox.Core;`.
+  `Result<Utils.Unit, DatabaseError>`, `Utils.Unit.Value`) → `Unit` with `using Sandbox.Core.Results;`.
 - Verify `sandbox-api` controllers and `Program.cs` still resolve `Result`/`Unit`
-  (add `using Sandbox.Core;` where needed).
+  (add `using Sandbox.Core.Results;` where needed).
 - `DatabaseError` (in `sandbox-api/Models`) is unaffected — it does not depend on the moved
   types, and the repositories keep using `Result<X, DatabaseError>` (core `Result` +
   api `DatabaseError`).

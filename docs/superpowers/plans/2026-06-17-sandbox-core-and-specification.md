@@ -4,7 +4,7 @@
 
 **Goal:** Extract the duplicated `Result` ecosystem into a new `Sandbox.Core` class library, then add a composable Specification system (built on `System.Linq.Expressions`) to that library, evaluated in-memory and covered by MSTest.
 
-**Architecture:** New `Sandbox.Core` classlib holds `Result`/`ResultExtensions`/`ResultHelpers`/`Unit`/`ApiError` (single namespace `Sandbox.Core`) plus a `Sandbox.Core.Specifications` namespace with the spec engine. The console `Sandbox`, web `sandbox-api`, and a new `Sandbox.Tests` (MSTest) project all reference the library. The spec engine combines `Expression<Func<T,bool>>` predicates via parameter-rebinding (`ExpressionVisitor`) and a `SpecificationEvaluator` applies filter/order/page/project over `IEnumerable<T>`.
+**Architecture:** New `Sandbox.Core` classlib organized one folder per concept, namespace mirroring folder: `Results/` holds `Result`/`ResultExtensions`/`ResultHelpers`/`Unit`/`ApiError` (ns `Sandbox.Core.Results`); `Specifications/` holds the spec engine (ns `Sandbox.Core.Specifications`). The console `Sandbox`, web `sandbox-api`, and a new `Sandbox.Tests` (MSTest) project all reference the library. The spec engine combines `Expression<Func<T,bool>>` predicates via parameter-rebinding (`ExpressionVisitor`) and a `SpecificationEvaluator` applies filter/order/page/project over `IEnumerable<T>`.
 
 **Tech Stack:** C# / .NET 10 (`net10.0`), `System.Linq.Expressions`, MSTest (`Microsoft.NET.Test.Sdk`, `MSTest.TestAdapter`, `MSTest.TestFramework`), `.slnx` solution format.
 
@@ -14,11 +14,11 @@
 
 ## File Structure
 
-**New project `Sandbox.Core/`:**
+**New project `Sandbox.Core/`** — one folder per concept; **namespace mirrors folder**:
 - `Sandbox.Core.csproj` — classlib, `net10.0`, nullable + implicit usings.
-- `Result.cs` — `Result<T,TError>` + `ResultExtensions` (moved, ns `Sandbox.Core`).
-- `ResultHelpers.cs` — `ResultHelpers` + `Unit` + `ApiError` (moved, ns `Sandbox.Core`).
-- `Specifications/ExpressionExtensions.cs` — `ParameterReplacer` + `And`/`Or`/`Not`.
+- `Results/Result.cs` — `Result<T,TError>` + `ResultExtensions` (moved, ns `Sandbox.Core.Results`).
+- `Results/ResultHelpers.cs` — `ResultHelpers` + `Unit` + `ApiError` (moved, ns `Sandbox.Core.Results`).
+- `Specifications/ExpressionExtensions.cs` — `ParameterReplacer` + `And`/`Or`/`Not` (ns `Sandbox.Core.Specifications`).
 - `Specifications/Specification.cs` — `Specification<T>`, `AdHocSpecification<T>`, `Specification<T,TResult>`.
 - `Specifications/SpecificationEvaluator.cs` — evaluator.
 
@@ -121,31 +121,32 @@ git commit -m "build: scaffold Sandbox.Core lib and Sandbox.Tests project"
 
 ---
 
-### Task 2: Move the `Result` ecosystem into `Sandbox.Core`
+### Task 2: Move the `Result` ecosystem into `Sandbox.Core/Results/`
 
 The console copies (`Sandbox/utils/Result.cs`, `Sandbox/utils/ResultHelpers.cs`) become the
-single source of truth, moved under namespace `Sandbox.Core`. The api copies are deleted.
+single source of truth, moved into `Sandbox.Core/Results/` under namespace
+`Sandbox.Core.Results`. The api copies are deleted.
 
 **Files:**
-- Create: `Sandbox.Core/Result.cs` (from `Sandbox/utils/Result.cs`)
-- Create: `Sandbox.Core/ResultHelpers.cs` (from `Sandbox/utils/ResultHelpers.cs`)
+- Create: `Sandbox.Core/Results/Result.cs` (from `Sandbox/utils/Result.cs`)
+- Create: `Sandbox.Core/Results/ResultHelpers.cs` (from `Sandbox/utils/ResultHelpers.cs`)
 - Delete: `Sandbox/utils/Result.cs`, `Sandbox/utils/ResultHelpers.cs`, `sandbox-api/Utils/Result.cs`, `sandbox-api/Utils/ResultHelpers.cs`
 
 - [ ] **Step 1: Move `Result.cs` into the library**
 
-Move `Sandbox/utils/Result.cs` to `Sandbox.Core/Result.cs`. Change ONLY the namespace
+Move `Sandbox/utils/Result.cs` to `Sandbox.Core/Results/Result.cs`. Change ONLY the namespace
 declaration line:
 - From: `namespace Sandbox.utils`
-- To: `namespace Sandbox.Core`
+- To: `namespace Sandbox.Core.Results`
 
 Leave all type bodies (`Result<T,TError>`, `ResultExtensions`) and the
 `using System.Diagnostics.CodeAnalysis;` line unchanged.
 
 - [ ] **Step 2: Move `ResultHelpers.cs` into the library**
 
-Move `Sandbox/utils/ResultHelpers.cs` to `Sandbox.Core/ResultHelpers.cs`. Make exactly two edits:
+Move `Sandbox/utils/ResultHelpers.cs` to `Sandbox.Core/Results/ResultHelpers.cs`. Make exactly two edits:
 - Delete the top line `using Sandbox.utils;` (Result now lives in the same namespace).
-- Change `namespace Sandbox.Utils` → `namespace Sandbox.Core`.
+- Change `namespace Sandbox.Utils` → `namespace Sandbox.Core.Results`.
 
 Leave `ResultHelpers`, `Unit`, and `ApiError` bodies unchanged.
 
@@ -197,7 +198,7 @@ using Sandbox.Utils;
 ```
 with the single line
 ```csharp
-using Sandbox.Core;
+using Sandbox.Core.Results;
 ```
 
 In `ExtensionsExamples.cs` and `ResultExamples.cs`: replace the top line
@@ -206,7 +207,7 @@ using Sandbox.utils;
 ```
 with
 ```csharp
-using Sandbox.Core;
+using Sandbox.Core.Results;
 ```
 (Leave the local `public record Error(...)` in `ResultExamples.cs` untouched.)
 
@@ -218,7 +219,7 @@ using sandbox_api.Utils;
 ```
 with
 ```csharp
-using Sandbox.Core;
+using Sandbox.Core.Results;
 ```
 Then in `IProductRepository.cs` change the two signatures using `Utils.Unit`:
 ```csharp
@@ -238,7 +239,7 @@ using sandbox_api.Utils;
 ```
 with
 ```csharp
-using Sandbox.Core;
+using Sandbox.Core.Results;
 ```
 Then replace every remaining `Utils.Unit` with `Unit`:
 - `ProductRepository.cs`: the method return types on the `AdjustStockAsync` / `ReserveStockAsync` signatures, and `Result<Unit, DatabaseError>.Success(Unit.Value)`.
@@ -253,7 +254,7 @@ Expected: Build succeeded, 0 errors, across `Sandbox.Core`, `Sandbox`, `sandbox-
 
 If any `sandbox-api` file (e.g. a controller or `Program.cs`) reports
 `CS0246`/`CS0103` for `Result`, `Unit`, or a `Result` extension method, add
-`using Sandbox.Core;` to that file's `using` block and rebuild. (Controllers currently
+`using Sandbox.Core.Results;` to that file's `using` block and rebuild. (Controllers currently
 do not import the utils namespace and rely on `var` + instance methods, so they are
 expected to need no change — but the build is the source of truth.)
 
@@ -772,7 +773,7 @@ git commit -m "feat: add SpecificationEvaluator (filter/order/page/project)"
 Create `Sandbox.Tests/ResultSmokeTests.cs`:
 ```csharp
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Sandbox.Core;
+using Sandbox.Core.Results;
 
 namespace Sandbox.Tests
 {
@@ -854,7 +855,7 @@ namespace sandbox_api.Specifications
 - [ ] **Step 2: Add the spec-based query to the interface**
 
 In `sandbox-api/Repositories/IProductRepository.cs`, add `using Sandbox.Core.Specifications;`
-to the using block (it already has `using Sandbox.Core;` and `using sandbox_api.Models;`),
+to the using block (it already has `using Sandbox.Core.Results;` and `using sandbox_api.Models;`),
 then add this member to the interface:
 ```csharp
         Task<Result<List<Product>, DatabaseError>> GetBySpecificationAsync(Specification<Product> spec);
@@ -1010,7 +1011,7 @@ git commit -m "feat: add runnable Specification console demo"
 
 - **Shared lib extraction** → Tasks 1–3 (scaffold, move, repoint). Duplicate deletion +
   green-build gate covered.
-- **Single namespace `Sandbox.Core`** → Task 2 namespace edits.
+- **Concept folders, namespace mirrors folder** (`Sandbox.Core.Results`, `Sandbox.Core.Specifications`) → Task 2 namespace edits + Task 3 repoint.
 - **Spec engine (criteria/order/page/projection)** → Tasks 4–6, each TDD.
 - **Parameter-rebinding `ExpressionVisitor`** → Task 4 `ParameterReplacer`.
 - **Combinator left-wins shaping rule** → Task 5 `WithShapingFrom`.
