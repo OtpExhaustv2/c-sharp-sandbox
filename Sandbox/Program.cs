@@ -1,3 +1,3 @@
 using Sandbox.examples;
 
-SpecificationExamples.Main();
+await SqlServerExamples.Main();
