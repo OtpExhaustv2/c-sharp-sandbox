@@ -156,5 +156,45 @@ namespace Sandbox.Tests
             Assert.AreEqual("SELECT * FROM [Products] ORDER BY [Category], [Price] DESC", compiled.Sql);
             Assert.AreEqual(0, compiled.Parameters.Count);
         }
+
+        [TestMethod]
+        public void Paging_WithOrderBy_EmitsOffsetFetch()
+        {
+            var compiled = SqlQuery.From("Products")
+                .OrderBy(r => r["Price"])
+                .Skip(10)
+                .Take(5)
+                .ToSql();
+
+            Assert.AreEqual(
+                "SELECT * FROM [Products] ORDER BY [Price] OFFSET @p0 ROWS FETCH NEXT @p1 ROWS ONLY",
+                compiled.Sql);
+            Assert.AreEqual(10, compiled.Parameters["@p0"]);
+            Assert.AreEqual(5, compiled.Parameters["@p1"]);
+        }
+
+        [TestMethod]
+        public void Paging_WithoutOrderBy_EmitsOrderBySelect1()
+        {
+            var compiled = SqlQuery.From("Products").Skip(10).Take(5).ToSql();
+
+            Assert.AreEqual(
+                "SELECT * FROM [Products] ORDER BY (SELECT 1) OFFSET @p0 ROWS FETCH NEXT @p1 ROWS ONLY",
+                compiled.Sql);
+            Assert.AreEqual(10, compiled.Parameters["@p0"]);
+            Assert.AreEqual(5, compiled.Parameters["@p1"]);
+        }
+
+        [TestMethod]
+        public void Take_Only_DefaultsOffsetToZero()
+        {
+            var compiled = SqlQuery.From("Products").Take(5).ToSql();
+
+            Assert.AreEqual(
+                "SELECT * FROM [Products] ORDER BY (SELECT 1) OFFSET @p0 ROWS FETCH NEXT @p1 ROWS ONLY",
+                compiled.Sql);
+            Assert.AreEqual(0, compiled.Parameters["@p0"]);
+            Assert.AreEqual(5, compiled.Parameters["@p1"]);
+        }
     }
 }

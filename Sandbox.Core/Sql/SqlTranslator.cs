@@ -50,6 +50,14 @@ namespace Sandbox.Core.Sql
                     model.OrderBy.Add((PredicateTranslator.Column(GetLambda(call.Arguments[1])), true));
                     break;
 
+                case "Skip":
+                    model.Skip = GetInt(call.Arguments[1]);
+                    break;
+
+                case "Take":
+                    model.Take = GetInt(call.Arguments[1]);
+                    break;
+
                 default:
                     throw new NotSupportedException($"Unsupported query operator: {call.Method.Name}");
             }
@@ -62,6 +70,10 @@ namespace Sandbox.Core.Sql
                 argument = quote.Operand;
             return (LambdaExpression)argument;
         }
+
+        // Skip/Take argument may be a literal or a captured variable; evaluate it.
+        private static int GetInt(Expression argument)
+            => (int)Expression.Lambda(argument).Compile().DynamicInvoke()!;
 
         private static string Render(SqlQueryModel m, SqlParameterBag parameters)
         {
