@@ -1,6 +1,6 @@
 using sandbox_api.Data;
 using sandbox_api.Models;
-using sandbox_api.Utils;
+using Sandbox.Core;
 
 namespace sandbox_api.Repositories
 {
@@ -145,7 +145,7 @@ namespace sandbox_api.Repositories
             );
         }
 
-        public async Task<Result<Utils.Unit, DatabaseError>> AdjustStockAsync(int productId, int quantityChange)
+        public async Task<Result<Unit, DatabaseError>> AdjustStockAsync(int productId, int quantityChange)
         {
             var getProductResult = await GetProductByIdAsync(productId);
             if (getProductResult.IsFailure)
@@ -164,12 +164,12 @@ namespace sandbox_api.Repositories
 
             return updateResult.Bind(success =>
                 success
-                    ? Result<Utils.Unit, DatabaseError>.Success(Utils.Unit.Value)
+                    ? Result<Unit, DatabaseError>.Success(Unit.Value)
                     : new DatabaseError("UPDATE_FAILED", "Failed to adjust stock")
             );
         }
 
-        public async Task<Result<Utils.Unit, DatabaseError>> ReserveStockAsync(int productId, int quantity)
+        public async Task<Result<Unit, DatabaseError>> ReserveStockAsync(int productId, int quantity)
         {
             if (quantity <= 0)
                 return new ValidationError("Quantity", "Quantity must be greater than zero");

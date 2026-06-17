@@ -1,5 +1,5 @@
 using sandbox_api.Models;
-using sandbox_api.Utils;
+using Sandbox.Core;
 
 namespace sandbox_api.Repositories
 {
@@ -11,7 +11,7 @@ namespace sandbox_api.Repositories
         Task<Result<List<Product>, DatabaseError>> GetProductsByCategoryAsync(string category);
         Task<Result<Product, DatabaseError>> CreateProductAsync(string name, string description, decimal price, int stockQuantity, string category);
         Task<Result<Product, DatabaseError>> UpdateProductAsync(int id, string? name, string? description, decimal? price, int? stockQuantity, string? category);
-        Task<Result<Utils.Unit, DatabaseError>> AdjustStockAsync(int productId, int quantityChange);
-        Task<Result<Utils.Unit, DatabaseError>> ReserveStockAsync(int productId, int quantity);
+        Task<Result<Unit, DatabaseError>> AdjustStockAsync(int productId, int quantityChange);
+        Task<Result<Unit, DatabaseError>> ReserveStockAsync(int productId, int quantity);
     }
 }
