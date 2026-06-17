@@ -35,6 +35,11 @@ namespace Sandbox.Core.Sql
         {
             switch (call.Method.Name)
             {
+                case "Where":
+                    model.WhereFragments.Add(
+                        PredicateTranslator.Translate(GetLambda(call.Arguments[1]), parameters));
+                    break;
+
                 default:
                     throw new NotSupportedException($"Unsupported query operator: {call.Method.Name}");
             }
