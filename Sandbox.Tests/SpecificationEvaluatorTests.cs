@@ -1,4 +1,3 @@
-using System.Linq;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Sandbox.Core.Specifications;
 
@@ -34,6 +33,15 @@ namespace Sandbox.Tests
         }
 
         [TestMethod]
+        public void Orders_Descending()
+        {
+            var ids = SpecificationEvaluator.Evaluate(Sample(), new PriciestFirstSpec())
+                .Select(w => w.Id).ToList();
+
+            CollectionAssert.AreEqual(new[] { 1, 3, 2, 4 }, ids);
+        }
+
+        [TestMethod]
         public void Pages_WithSkipAndTake()
         {
             var ids = SpecificationEvaluator.Evaluate(Sample(), new PagedByIdSpec(skip: 1, take: 2))
@@ -48,6 +56,13 @@ namespace Sandbox.Tests
             var names = SpecificationEvaluator.Evaluate(Sample(), new WidgetNameSpec()).ToList();
 
             CollectionAssert.AreEqual(new[] { "Alpha", "Bravo", "Charlie", "Delta" }, names);
+        }
+
+        [TestMethod]
+        public void Projection_Throws_WhenSelectorIsNull()
+        {
+            Assert.ThrowsExactly<InvalidOperationException>(
+                () => SpecificationEvaluator.Evaluate(Sample(), new NoSelectorSpec()).ToList());
         }
 
         [TestMethod]

@@ -19,6 +19,11 @@ namespace Sandbox.Tests
         public CheapestFirstSpec() => AddOrderBy(w => w.Price);
     }
 
+    internal sealed class PriciestFirstSpec : Specification<Widget>
+    {
+        public PriciestFirstSpec() => AddOrderByDescending(w => w.Price);
+    }
+
     internal sealed class PagedByIdSpec : Specification<Widget>
     {
         public PagedByIdSpec(int skip, int take)
@@ -31,5 +36,10 @@ namespace Sandbox.Tests
     internal sealed class WidgetNameSpec : Specification<Widget, string>
     {
         public WidgetNameSpec() => AddSelector(w => w.Name);
+    }
+
+    internal sealed class NoSelectorSpec : Specification<Widget, string>
+    {
+        // Intentionally does not call AddSelector — used to test the evaluator guard.
     }
 }

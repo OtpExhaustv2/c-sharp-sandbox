@@ -10,8 +10,10 @@ namespace Sandbox.Core.Specifications
     {
         public Expression<Func<T, bool>>? Criteria { get; private set; }
 
-        public List<(Expression<Func<T, object>> KeySelector, bool Descending)> OrderExpressions { get; }
-            = new();
+        private readonly List<(Expression<Func<T, object>> KeySelector, bool Descending)> _orderExpressions = new();
+
+        public IReadOnlyList<(Expression<Func<T, object>> KeySelector, bool Descending)> OrderExpressions
+            => _orderExpressions;
 
         public int? Skip { get; private set; }
         public int? Take { get; private set; }
@@ -23,10 +25,10 @@ namespace Sandbox.Core.Specifications
         protected void AddCriteria(Expression<Func<T, bool>> criteria) => Criteria = criteria;
 
         protected void AddOrderBy(Expression<Func<T, object>> keySelector)
-            => OrderExpressions.Add((keySelector, false));
+            => _orderExpressions.Add((keySelector, false));
 
         protected void AddOrderByDescending(Expression<Func<T, object>> keySelector)
-            => OrderExpressions.Add((keySelector, true));
+            => _orderExpressions.Add((keySelector, true));
 
         protected void ApplyPaging(int skip, int take)
         {
@@ -61,7 +63,7 @@ namespace Sandbox.Core.Specifications
             Expression<Func<T, bool>> criteria)
         {
             var spec = new AdHocSpecification<T>(criteria);
-            spec.OrderExpressions.AddRange(source.OrderExpressions);
+            spec._orderExpressions.AddRange(source._orderExpressions);
             if (source.Skip.HasValue && source.Take.HasValue)
                 spec.ApplyPaging(source.Skip.Value, source.Take.Value);
             return spec;

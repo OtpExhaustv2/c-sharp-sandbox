@@ -17,6 +17,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Sandbox.Core\Sandbox.Core.csproj" />
+    <ProjectReference Include="..\sandbox-api\sandbox-api.csproj" />
   </ItemGroup>
 
 </Project>
