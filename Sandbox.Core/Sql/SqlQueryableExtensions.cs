@@ -33,6 +33,26 @@ namespace Sandbox.Core.Sql
             return null;
         }
 
+        /// <summary>Translate the query into a parameterized SELECT COUNT(*) (inspection).</summary>
+        public static CompiledSql ToCountSql(this IQueryable query)
+            => SqlTranslator.TranslateCount(query.Expression, Provider(query).Table);
+
+        /// <summary>Execute COUNT(*) for the query's filter.</summary>
+        public static async Task<int> CountAsync(
+            this IQueryable query, CancellationToken cancellationToken = default)
+        {
+            var provider = ExecutableProvider(query);
+            var compiled = SqlTranslator.TranslateCount(query.Expression, provider.Table);
+            var scalar = await new SqlServerExecutor(provider.ConnectionString!)
+                .ExecuteScalarAsync(compiled, cancellationToken);
+            return Convert.ToInt32(scalar);
+        }
+
+        /// <summary>True if any row matches the query's filter.</summary>
+        public static async Task<bool> AnyAsync(
+            this IQueryable query, CancellationToken cancellationToken = default)
+            => await query.CountAsync(cancellationToken) > 0;
+
         private static SqlQueryProvider Provider(IQueryable query)
             => query.Provider as SqlQueryProvider
                ?? throw new NotSupportedException(

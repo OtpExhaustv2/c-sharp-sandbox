@@ -5,7 +5,7 @@ namespace Sandbox.Core.Sql
 {
     /// <summary>
     /// Executes a CompiledSql query against SQL Server and returns the rows as schema-less
-    /// dictionaries. Read-only — the query builder only emits SELECT statements.
+    /// dictionaries (or a scalar). Read-only — the query builder only emits SELECT statements.
     /// </summary>
     public sealed class SqlServerExecutor
     {
@@ -21,20 +21,12 @@ namespace Sandbox.Core.Sql
             await using var connection = new SqlConnection(_connectionString);
             await connection.OpenAsync(cancellationToken);
 
-            await using var command = connection.CreateCommand();
-            command.CommandText = query.Sql;
-            foreach (var (name, value) in query.Parameters)
-                command.Parameters.AddWithValue(name, value ?? DBNull.Value);
-
+            await using var command = CreateCommand(connection, query);
             await using var reader = await command.ExecuteReaderAsync(cancellationToken);
             return await RowMaterializer.MaterializeAsync(reader, cancellationToken);
         }
 
-        /// <summary>
-        /// Executes the query and streams rows one at a time. The connection/command/reader
-        /// stay open for the lifetime of enumeration and are disposed when the consumer
-        /// finishes or breaks early — nothing is buffered.
-        /// </summary>
+        /// <summary>Executes the query and streams rows one at a time.</summary>
         public async IAsyncEnumerable<IReadOnlyDictionary<string, object?>> ExecuteStreamAsync(
             CompiledSql query,
             [EnumeratorCancellation] CancellationToken cancellationToken = default)
@@ -42,14 +34,31 @@ namespace Sandbox.Core.Sql
             await using var connection = new SqlConnection(_connectionString);
             await connection.OpenAsync(cancellationToken);
 
-            await using var command = connection.CreateCommand();
-            command.CommandText = query.Sql;
-            foreach (var (name, value) in query.Parameters)
-                command.Parameters.AddWithValue(name, value ?? DBNull.Value);
-
+            await using var command = CreateCommand(connection, query);
             await using var reader = await command.ExecuteReaderAsync(cancellationToken);
             while (await reader.ReadAsync(cancellationToken))
                 yield return RowMaterializer.MapRow(reader);
+        }
+
+        /// <summary>Executes the query and returns the first column of the first row.</summary>
+        public async Task<object?> ExecuteScalarAsync(
+            CompiledSql query,
+            CancellationToken cancellationToken = default)
+        {
+            await using var connection = new SqlConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            await using var command = CreateCommand(connection, query);
+            return await command.ExecuteScalarAsync(cancellationToken);
+        }
+
+        private static SqlCommand CreateCommand(SqlConnection connection, CompiledSql query)
+        {
+            var command = connection.CreateCommand();
+            command.CommandText = query.Sql;
+            foreach (var (name, value) in query.Parameters)
+                command.Parameters.AddWithValue(name, value ?? DBNull.Value);
+            return command;
         }
     }
 }
