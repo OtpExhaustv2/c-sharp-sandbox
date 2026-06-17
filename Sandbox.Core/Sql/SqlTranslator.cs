@@ -62,7 +62,14 @@ namespace Sandbox.Core.Sql
             sb.Append(" FROM [").Append(m.Table).Append(']');
 
             if (m.WhereFragments.Count > 0)
-                sb.Append(" WHERE ").Append(string.Join(" AND ", m.WhereFragments));
+            {
+                // A single fragment is already self-contained; multiple Where() calls are
+                // AND-combined and each wrapped so their internal precedence can't leak.
+                var where = m.WhereFragments.Count == 1
+                    ? m.WhereFragments[0]
+                    : string.Join(" AND ", m.WhereFragments.Select(f => $"({f})"));
+                sb.Append(" WHERE ").Append(where);
+            }
 
             var hasPaging = m.Skip.HasValue || m.Take.HasValue;
 

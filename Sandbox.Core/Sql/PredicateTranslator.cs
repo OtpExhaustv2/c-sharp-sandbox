@@ -97,7 +97,7 @@ namespace Sandbox.Core.Sql
             {
                 var column = AsColumn(call.Object)
                     ?? throw new NotSupportedException($"{call.Method.Name} must be called on a column.");
-                var argument = Evaluate(call.Arguments[0]);
+                var argument = EscapeLike(Evaluate(call.Arguments[0])?.ToString());
                 var pattern = call.Method.Name switch
                 {
                     "Contains" => $"%{argument}%",
@@ -149,8 +149,15 @@ namespace Sandbox.Core.Sql
         {
             if (ReferencesRow(node))
                 throw new NotSupportedException($"Cannot translate expression that references the row: {node}");
+            if (node is ConstantExpression constant)
+                return constant.Value;
             return Expression.Lambda(node).Compile().DynamicInvoke();
         }
+
+        // Escape T-SQL LIKE metacharacters so a search term is matched literally.
+        // '[' first, so the brackets we introduce for '%' and '_' are not re-escaped.
+        private static string? EscapeLike(string? value)
+            => value?.Replace("[", "[[]").Replace("%", "[%]").Replace("_", "[_]");
 
         private bool ReferencesRow(Expression node) => new RowReferenceFinder(_row).IsFound(node);
 
@@ -163,7 +170,7 @@ namespace Sandbox.Core.Sql
             => AsColumn(node) ?? throw new NotSupportedException("Expected a row[\"Col\"] reference.");
 
         private static bool IsNull(Expression node)
-            => node is ConstantExpression { Value: null };
+            => Unwrap(node) is ConstantExpression { Value: null };
 
         private static string SqlOperator(ExpressionType type) => type switch
         {

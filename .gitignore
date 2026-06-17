@@ -89,6 +89,9 @@ AppPackages/
 
 # Others
 sql/
+# The generic 'sql/' rule above matches our source folder Sandbox.Core/Sql/
+# case-insensitively on Windows; keep that source directory tracked.
+!Sandbox.Core/Sql/
 *.Cache
 ClientBin/
 [Ss]tyle[Cc]op.*
