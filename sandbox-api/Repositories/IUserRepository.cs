@@ -1,5 +1,5 @@
-using sandbox_api.Models;
-using sandbox_api.Utils;
+﻿using sandbox_api.Models;
+using Sandbox.Core.Results;
 
 namespace sandbox_api.Repositories
 {
@@ -10,7 +10,7 @@ namespace sandbox_api.Repositories
         Task<Result<User, DatabaseError>> GetUserByEmailAsync(string email);
         Task<Result<User, DatabaseError>> CreateUserAsync(string username, string email, string fullName);
         Task<Result<User, DatabaseError>> UpdateUserAsync(int id, string? username, string? email, string? fullName, bool? isActive);
-        Task<Result<Utils.Unit, DatabaseError>> DeleteUserAsync(int id);
+        Task<Result<Unit, DatabaseError>> DeleteUserAsync(int id);
         Task<Result<User, DatabaseError>> RecordLoginAsync(int id);
     }
 }

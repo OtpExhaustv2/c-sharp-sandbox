@@ -1,3 +1,3 @@
-﻿using Sandbox.examples;
+using Sandbox.examples;
 
-await AdvancedCollectionExamples.Main();
+SpecificationExamples.Main();

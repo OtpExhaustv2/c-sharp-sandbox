@@ -1,6 +1,4 @@
-﻿using Sandbox.utils;
-
-namespace Sandbox.Utils
+﻿namespace Sandbox.Core.Results
 {
 
     /// <summary>
@@ -677,6 +675,4 @@ namespace Sandbox.Utils
         public static bool operator ==(Unit left, Unit right) => true;
         public static bool operator !=(Unit left, Unit right) => false;
     }
-
-    public record ApiError(string Code, string Message, Exception? InnerException = null);
 }

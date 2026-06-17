@@ -1,6 +1,6 @@
-using sandbox_api.Data;
+﻿using sandbox_api.Data;
 using sandbox_api.Models;
-using sandbox_api.Utils;
+using Sandbox.Core.Results;
 
 namespace sandbox_api.Repositories
 {
@@ -149,7 +149,7 @@ namespace sandbox_api.Repositories
             );
         }
 
-        public async Task<Result<Utils.Unit, DatabaseError>> DeleteUserAsync(int id)
+        public async Task<Result<Unit, DatabaseError>> DeleteUserAsync(int id)
         {
             // Check if user exists
             var getUserResult = await GetUserByIdAsync(id);
@@ -163,7 +163,7 @@ namespace sandbox_api.Repositories
 
             return deleteResult.Bind(success =>
                 success
-                    ? Result<Utils.Unit, DatabaseError>.Success(Utils.Unit.Value)
+                    ? Result<Unit, DatabaseError>.Success(Unit.Value)
                     : new DatabaseError("DELETE_FAILED", "Failed to delete user")
             );
         }
