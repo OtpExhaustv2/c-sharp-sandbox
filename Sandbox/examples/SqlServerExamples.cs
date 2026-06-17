@@ -49,6 +49,17 @@ namespace Sandbox.examples
                 .Where(r => (string)r["Category"] == "Tools" && (bool)r["IsAvailable"] == true)
                 .Select(r => new { Name = r["Name"], Price = r["Price"] })
                 .ToSql(), executor);
+
+            Console.WriteLine("\n=== Streaming: all products, one row at a time ===");
+            var allProducts = SqlQuery.From("Products").OrderBy(r => r["Id"]).ToSql();
+            Console.WriteLine($"SQL: {allProducts.Sql}");
+            var streamed = 0;
+            await foreach (var row in executor.ExecuteStreamAsync(allProducts))
+            {
+                Console.WriteLine("  " + string.Join(", ", row.Select(kv => $"{kv.Key}={kv.Value}")));
+                streamed++;
+            }
+            Console.WriteLine($"  (streamed {streamed} row(s))");
         }
 
         private static async Task PrintAsync(CompiledSql query, SqlServerExecutor executor)
