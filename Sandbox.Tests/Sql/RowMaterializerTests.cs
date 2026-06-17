@@ -53,5 +53,31 @@ namespace Sandbox.Tests.Sql
 
             Assert.IsEmpty(rows);
         }
+
+        [TestMethod]
+        public void MapRow_MapsCurrentRowByName()
+        {
+            using var reader = BuildTable().CreateDataReader();
+            Assert.IsTrue(reader.Read());
+
+            var row = RowMaterializer.MapRow(reader);
+
+            Assert.AreEqual(1, row["Id"]);
+            Assert.AreEqual("Bolt", row["Name"]);
+            Assert.AreEqual(5.00m, row["Price"]);
+        }
+
+        [TestMethod]
+        public void MapRow_MapsDbNullToNull()
+        {
+            using var reader = BuildTable().CreateDataReader();
+            Assert.IsTrue(reader.Read());
+            Assert.IsTrue(reader.Read()); // second row has a DBNull Price
+
+            var row = RowMaterializer.MapRow(reader);
+
+            Assert.AreEqual("Nut", row["Name"]);
+            Assert.IsNull(row["Price"]);
+        }
     }
 }
