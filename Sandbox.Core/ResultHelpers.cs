@@ -1,6 +1,4 @@
-﻿using Sandbox.utils;
-
-namespace Sandbox.Utils
+﻿namespace Sandbox.Core
 {
 
     /// <summary>
