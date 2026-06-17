@@ -1,157 +1,218 @@
-# Specification System via Expression Trees — Design
+# Shared Core Library + Specification System via Expression Trees — Design
 
 Date: 2026-06-17
-Status: Approved (shape + testing); pending spec review
+Status: Design under review
 
 ## Goal
 
-Build a composable **Specification** system for the `Sandbox` console project using
-`System.Linq.Expressions`. A specification encapsulates a query as an
-`Expression<Func<T, bool>>` (the criteria) plus optional query-shaping state
-(ordering, paging, projection). Specifications compose via `And` / `Or` / `Not`
-and evaluate against **in-memory `IEnumerable<T>`** collections (LINQ-to-Objects).
+Two coupled deliverables:
 
-Scope chosen: **predicates + query shaping** (criteria, ordering, paging, projection).
-Target chosen: **in-memory `IEnumerable<T>`** — no EF Core dependency.
+1. **Extract a shared class library `Sandbox.Core`** that holds the reusable building
+   blocks currently **duplicated** between the `Sandbox` console project and the
+   `sandbox-api` web project (the `Result` functional ecosystem). Both projects, plus a
+   new test project, reference this single library instead of copy-pasting.
+
+2. **Add a composable Specification system** built on `System.Linq.Expressions`, living
+   in `Sandbox.Core`. A specification encapsulates a query as an
+   `Expression<Func<T, bool>>` (criteria) plus optional query-shaping state (ordering,
+   paging, projection). Specifications compose via `And` / `Or` / `Not` and evaluate
+   against **in-memory `IEnumerable<T>`** (LINQ-to-Objects).
+
+### Decisions locked in
+
+- Library name + root namespace: **`Sandbox.Core`**; spec engine under
+  `Sandbox.Core.Specifications`.
+- Specification scope: **predicates + query shaping** (criteria, ordering, paging, projection).
+- Evaluation target: **in-memory `IEnumerable<T>`** — no EF Core, no `IQueryable`.
+- `DatabaseError` hierarchy **stays in `sandbox-api`** (data-layer error taxonomy, not
+  part of the generic core).
+- Tests: **MSTest**, in a new `Sandbox.Tests` project.
 
 ### Non-goals (YAGNI)
 
-- No `IQueryable` / EF Core provider, no SQL translation. (The parameter-rebinding
-  approach is deliberately SQL-translatable so this could be added later, but it is
-  out of scope now.)
-- No eager-loading "Includes" — meaningless for plain in-memory objects.
-- No coupling to the existing `Result` type. Specifications stay orthogonal.
+- No `IQueryable` / EF Core / SQL translation. (Parameter-rebinding is deliberately
+  translation-friendly so this *could* be added later — but out of scope now.)
+- No eager-loading "Includes" — meaningless for in-memory objects.
+- No moving `DatabaseError`, controllers' DTOs, or domain models into the core.
+- No new functional helpers beyond what already exists; the move is lift-and-shift +
+  namespace consolidation, not a redesign of `Result`.
 
-## Why Expression and not `Func`
+## Current state (the problem)
 
-The entire point of the exercise is the expression tree. Combining two
-`Expression<Func<T, bool>>` with AND/OR is **not** a body concatenation: each lambda
-owns its own `ParameterExpression`, so `Expression.AndAlso(a.Body, b.Body)` produces
-a tree where `b.Body` still references `b`'s parameter — invalid when compiled under
-`a`'s parameter.
+`Result<T,TError>` + `ResultExtensions`, `ResultHelpers`, `Unit`, and `ApiError` exist as
+**byte-identical copies** in two places, differing only by namespace:
 
-The fix is an `ExpressionVisitor` that **rebinds** `b`'s parameter to `a`'s parameter,
-then builds `AndAlso` / `OrElse` over the two bodies under a single parameter. This
-`ParameterReplacer` visitor is the centerpiece of the design.
+| Type | `Sandbox` console | `sandbox-api` |
+|------|-------------------|---------------|
+| `Result<T,TError>`, `ResultExtensions` | `Sandbox/utils/Result.cs` (ns `Sandbox.utils`) | `sandbox-api/Utils/Result.cs` (ns `sandbox_api.Utils`) |
+| `ResultHelpers`, `Unit`, `ApiError` | `Sandbox/utils/ResultHelpers.cs` (ns `Sandbox.Utils`) | `sandbox-api/Utils/ResultHelpers.cs` (ns `sandbox_api.Utils`) |
 
-`Expression.Invoke(b, aParam)` would also work in-memory but is the "wrong" way
-(it does not translate to SQL and nests invocations). We use parameter rebinding on
-purpose because it is the teachable, translatable technique.
+Note the console project itself is internally inconsistent: `Result` is in namespace
+`Sandbox.utils` (lowercase) while `ResultHelpers`/`Unit`/`ApiError` are in `Sandbox.Utils`
+(capital), forcing files to import both. The extraction also fixes this by consolidating
+on one namespace.
 
 ## Architecture
 
-### Components
+### Project layout (after)
 
-| File | Responsibility |
-|------|----------------|
-| `Sandbox/utils/Specifications/ExpressionExtensions.cs` | `ParameterReplacer : ExpressionVisitor`; extension methods `And` / `Or` / `Not` on `Expression<Func<T,bool>>`. The core trick. |
-| `Sandbox/utils/Specifications/Specification.cs` | Abstract `Specification<T>` (criteria + ordering + paging + combinators + `IsSatisfiedBy`). Also `Specification<T, TResult>` adding a projection `Selector`. |
-| `Sandbox/utils/Specifications/SpecificationEvaluator.cs` | Applies a specification to an `IEnumerable<T>`: filter → order → page; projection overload returns `IEnumerable<TResult>`. |
-| `Sandbox/examples/SpecificationExamples.cs` | Concrete `Product` specs, composition, ordering/paging/projection, runnable `Main()` printing results. |
+```
+Sandbox.slnx
+├── Sandbox.Core/            (NEW) class library, net10.0
+│   ├── Result.cs                  Result<T,TError> + ResultExtensions
+│   ├── ResultHelpers.cs           ResultHelpers + Unit + ApiError
+│   └── Specifications/
+│       ├── ExpressionExtensions.cs   ParameterReplacer + And/Or/Not on Expression
+│       ├── Specification.cs          Specification<T>, Specification<T,TResult>
+│       └── SpecificationEvaluator.cs
+├── Sandbox/                 console (Exe)  → references Sandbox.Core
+│   └── examples/SpecificationExamples.cs  (NEW) runnable demo
+├── sandbox-api/             web API        → references Sandbox.Core
+│   └── Specifications/ProductSpecifications.cs  (NEW) concrete Product specs
+└── Sandbox.Tests/           (NEW) MSTest    → references Sandbox.Core
+```
 
-Namespace: `Sandbox.utils.Specifications` for the machinery, `Sandbox.examples` for the demo,
-matching the existing `Sandbox.utils` / `Sandbox.examples` convention. All machinery types
-are `public` so the test project can reference them.
+`Sandbox.Core.csproj`: `net10.0`, `ImplicitUsings` enable, `Nullable` enable (match
+existing projects). No external package dependencies.
 
-### `Specification<T>` (abstract)
+### What moves into `Sandbox.Core`
 
-State:
-- `Expression<Func<T, bool>>? Criteria` — `null` means "match all".
-- `OrderBy` list: ordered list of `(Expression<Func<T, object>> keySelector, bool descending)`
-  to support `OrderBy` + chained `ThenBy`.
-- `int? Skip`, `int? Take` — paging.
+All under the single root namespace **`Sandbox.Core`**:
 
-Protected builder methods (called from derived spec constructors):
-- `AddCriteria(Expression<Func<T,bool>>)` — sets/initializes the criteria.
-- `AddOrderBy(...)`, `AddOrderByDescending(...)`.
-- `ApplyPaging(int skip, int take)`.
+- `Result<T,TError>` + `ResultExtensions` (lift-and-shift from `Sandbox/utils/Result.cs`).
+- `ResultHelpers`, `Unit`, `ApiError` (from `Sandbox/utils/ResultHelpers.cs`).
 
-Public surface:
-- `bool IsSatisfiedBy(T entity)` — compiles `Criteria` (match-all if null) and evaluates one entity.
-- `Specification<T> And(Specification<T> other)`, `Or(...)`, `Not()` — combine the
-  `Criteria` of both specs using `ExpressionExtensions`, returning a new composed spec
-  (an internal `AdHocSpecification<T>` wrapping the combined criteria).
-  - Combinator semantics for query-shaping state: the **left** spec's ordering/paging
-    is carried forward; the right operand contributes only its criteria. (Documented as
-    a deliberate, simple rule; combining paging across specs is undefined and avoided.)
+The duplicate copies in **both** `Sandbox/utils/` and `sandbox-api/Utils/` are **deleted**.
 
-### `Specification<T, TResult>`
+### Migration / blast radius
 
-Subclass of `Specification<T>` adding `Expression<Func<T, TResult>> Selector` set via
-`AddSelector(...)`. Used by the evaluator's projection overload.
+Repointing is mostly mechanical:
 
-### `SpecificationEvaluator` (static)
+- Add `<ProjectReference>` to `Sandbox.Core` from `Sandbox`, `sandbox-api`, and `Sandbox.Tests`.
+- Delete: `Sandbox/utils/Result.cs`, `Sandbox/utils/ResultHelpers.cs`,
+  `sandbox-api/Utils/Result.cs`, `sandbox-api/Utils/ResultHelpers.cs`.
+- Replace `using Sandbox.utils;` / `using Sandbox.Utils;` / `using sandbox_api.Utils;`
+  with `using Sandbox.Core;` across the **12 files** that import them
+  (6 in `sandbox-api/Repositories`, 5 in `Sandbox/examples`, plus the moved files themselves).
+- Fix fully-qualified references: `Utils.Unit` in the repositories (e.g.
+  `Result<Utils.Unit, DatabaseError>`, `Utils.Unit.Value`) → `Unit` with `using Sandbox.Core;`.
+- Verify `sandbox-api` controllers and `Program.cs` still resolve `Result`/`Unit`
+  (add `using Sandbox.Core;` where needed).
+- `DatabaseError` (in `sandbox-api/Models`) is unaffected — it does not depend on the moved
+  types, and the repositories keep using `Result<X, DatabaseError>` (core `Result` +
+  api `DatabaseError`).
 
+**Gate:** both `Sandbox` and `sandbox-api` build green with zero behavior change before the
+Specification engine is added. This is its own plan phase.
+
+### The Expression meat (core of the exercise)
+
+Combining two `Expression<Func<T, bool>>` with AND/OR is **not** body concatenation: each
+lambda owns its own `ParameterExpression`, so `Expression.AndAlso(a.Body, b.Body)` yields a
+tree where `b.Body` still references `b`'s parameter — invalid when compiled under one
+parameter.
+
+Fix: an `ExpressionVisitor` (`ParameterReplacer`) that **rebinds** `b`'s parameter to `a`'s,
+then builds `AndAlso` / `OrElse` over the two bodies under a single parameter. `Not` wraps a
+single body in `Expression.Not`. This visitor is the centerpiece.
+
+`Expression.Invoke(b, aParam)` would also work in-memory but is the "wrong" technique (does
+not translate to SQL, nests invocations). Parameter rebinding is used on purpose — it is the
+teachable, translation-friendly approach.
+
+### Specification engine components (namespace `Sandbox.Core.Specifications`)
+
+**`ExpressionExtensions`** — `ParameterReplacer : ExpressionVisitor`; extension methods
+`And` / `Or` / `Not` on `Expression<Func<T,bool>>`.
+
+**`Specification<T>`** (abstract):
+- State: `Expression<Func<T,bool>>? Criteria` (`null` = match-all);
+  ordered list of `(Expression<Func<T,object>> keySelector, bool descending)` for
+  `OrderBy` + chained `ThenBy`; `int? Skip`, `int? Take`.
+- Protected builders (called from derived constructors): `AddCriteria(...)`,
+  `AddOrderBy(...)`, `AddOrderByDescending(...)`, `ApplyPaging(skip, take)`.
+- Public: `bool IsSatisfiedBy(T entity)` (compiles criteria, match-all if null);
+  `And` / `Or` / `Not` returning a composed spec (internal `AdHocSpecification<T>`
+  wrapping the combined criteria via `ExpressionExtensions`).
+- Combinator state rule: the **left** spec's ordering/paging carries forward; the right
+  operand contributes criteria only. Documented, deliberate simplification (combining
+  paging across specs is undefined and avoided).
+
+**`Specification<T,TResult>`** : subclass adding `Expression<Func<T,TResult>> Selector`
+(set via `AddSelector(...)`) for projection.
+
+**`SpecificationEvaluator`** (static):
 - `IEnumerable<T> Evaluate<T>(IEnumerable<T> source, Specification<T> spec)`:
-  1. `Where(spec.Criteria.Compile())` if criteria present.
-  2. Apply ordering: first entry → `OrderBy`/`OrderByDescending` (compiled), subsequent →
-     `ThenBy`/`ThenByDescending`.
-  3. Apply `Skip` then `Take` if set.
-- `IEnumerable<TResult> Evaluate<T, TResult>(IEnumerable<T> source, Specification<T, TResult> spec)`:
-  same pipeline, final `Select(spec.Selector.Compile())`.
+  filter (`Where` on compiled criteria) → order (`OrderBy`/`OrderByDescending` then
+  `ThenBy`/`ThenByDescending`) → page (`Skip` then `Take`).
+- `IEnumerable<TResult> Evaluate<T,TResult>(IEnumerable<T> source, Specification<T,TResult> spec)`:
+  same pipeline + final `Select(spec.Selector.Compile())`.
+- Expressions compiled at evaluation time (no delegate caching — out of scope; noted as a
+  possible later optimization).
 
-Expressions are compiled at evaluation time. (No caching of compiled delegates — out of
-scope for a sandbox demo; noted as a possible later optimization.)
+### Concrete specifications + demonstrations
 
-## Data flow
+- **`sandbox-api/Specifications/ProductSpecifications.cs`** — concrete specs over the
+  existing `Product` model, proving the engine is shared with the api:
+  `AvailableProductSpec` (`p => p.IsAvailable && p.StockQuantity > 0`),
+  `PriceBelowSpec(decimal max)`, `InCategorySpec(string category)`.
+  Plus a thin, read-only usage: a new `ProductRepository` method
+  `GetBySpecificationAsync(Specification<Product> spec)` that loads all products and applies
+  `SpecificationEvaluator.Evaluate`. (Read-only, additive — existing methods unchanged.)
+- **`Sandbox/examples/SpecificationExamples.cs`** — runnable console demo using a small
+  self-contained demo entity (a local `record`), composing specs with `And`/`Or`/`Not`,
+  ordering + paging + projection, printing results. `Program.cs` updated to call its `Main()`.
+
+### Data flow
 
 ```
 build concrete spec(s)
-  → compose via And/Or/Not   (criteria trees merged under one parameter)
-  → SpecificationEvaluator.Evaluate(products, spec)
-      filter (compiled criteria) → order → page [→ project]
+  → compose via And/Or/Not        (criteria trees merged under one parameter)
+  → SpecificationEvaluator.Evaluate(source, spec)
+       filter (compiled criteria) → order → page [→ project]
   → IEnumerable<T> / IEnumerable<TResult>
-  → print in example
+  → consumed by api repo method / printed in console example
 ```
-
-## Example (`SpecificationExamples.cs`)
-
-Concrete specs over the demo `Product` shape (`Id, Name, Price, StockQuantity, Category, IsAvailable`):
-- `AvailableProductSpec` — `p => p.IsAvailable && p.StockQuantity > 0`
-- `PriceBelowSpec(decimal max)` — `p => p.Price < max`
-- `InCategorySpec(string category)` — `p => p.Category == category`
-
-`Main()` demonstrates:
-1. `IsSatisfiedBy` on a single product.
-2. `AvailableProductSpec.And(new PriceBelowSpec(50m))` over a list.
-3. `Or` and `Not` composition.
-4. A spec with ordering + paging.
-5. A projecting `Specification<Product, string>` returning product names.
-
-The example uses its own small in-memory `List<Product>` (the example may define a
-minimal local `Product` record/class, OR reuse a shared one — see Open question).
-`Program.cs` is updated to call `SpecificationExamples.Main()`.
 
 ## Error handling
 
-Minimal by design:
 - Null `Criteria` ⇒ match-all (no exception).
 - Empty source ⇒ empty result.
-- Negative `Skip`/`Take` are not specially guarded (LINQ semantics apply); paging is set
-  only through `ApplyPaging`, called with sensible values in the demo.
+- Negative `Skip`/`Take` not specially guarded (LINQ semantics); paging set only via
+  `ApplyPaging` with sensible values.
+- The `Result` ecosystem move is behavior-preserving; no error-handling changes there.
 
-## Testing — MSTest
+## Testing — MSTest (`Sandbox.Tests`)
 
-Add a new test project `Sandbox.Tests` (MSTest: `Microsoft.NET.Test.Sdk`,
-`MSTest.TestAdapter`, `MSTest.TestFramework`), target `net10.0`, project reference to
-`Sandbox`. Add it to `Sandbox.slnx`.
+New project: `Microsoft.NET.Test.Sdk`, `MSTest.TestAdapter`, `MSTest.TestFramework`;
+`net10.0`; project reference to `Sandbox.Core`. Added to `Sandbox.slnx`.
 
-Test classes (`[TestClass]` / `[TestMethod]`):
-- **ExpressionExtensionsTests** — `And` is true only when both true; `Or` true when either;
-  `Not` inverts. Verify combined expression evaluates correctly across a truth table
-  (proves the parameter-rebinding actually works under one parameter).
-- **SpecificationTests** — `IsSatisfiedBy` for a concrete spec (true/false cases);
-  match-all when criteria null; `And`/`Or`/`Not` composition results.
-- **SpecificationEvaluatorTests** — filtering returns expected subset; ordering
-  (asc + `ThenBy`); paging (`Skip`/`Take`) returns expected window; projection returns
-  expected `TResult` sequence; empty source ⇒ empty.
+Test classes (`[TestClass]` / `[TestMethod]`), using a local test entity:
+- **ExpressionExtensionsTests** — `And`/`Or`/`Not` truth tables on combined expressions
+  (proves parameter-rebinding works under one parameter; the highest-risk logic).
+- **SpecificationTests** — `IsSatisfiedBy` true/false; match-all when criteria null;
+  `And`/`Or`/`Not` composition results.
+- **SpecificationEvaluatorTests** — filtering subset; ordering (asc + `ThenBy`); paging
+  (`Skip`/`Take`) window; projection sequence; empty source ⇒ empty.
+- **(smoke)** a couple of `Result`/`ResultHelpers` tests to confirm the extracted core
+  behaves identically (optional but cheap insurance for the move).
 
-Tests drive the implementation (TDD): write failing tests per unit, then implement.
+Implementation is **TDD**: write failing tests per unit, then implement.
 
-## Open questions for spec review
+## Plan phases (sequencing for the implementation plan)
 
-1. **Shared `Product` type.** The console `Sandbox` project has no `Product` model
-   (that lives in `sandbox-api`). Plan: define a small `Product` (record or class) inside
-   the example/test scope so the demo is self-contained — agree?
-2. **Combinator state rule.** Carrying only the left spec's ordering/paging on
-   `And`/`Or` (right contributes criteria only) — acceptable simplification?
+1. **Extract `Sandbox.Core`**: create lib, move Result ecosystem, delete duplicates,
+   repoint usings, add project references — both apps build green, zero behavior change.
+2. **Spec engine** (TDD): `ExpressionExtensions` → `Specification<T>` → `Specification<T,TResult>`
+   → `SpecificationEvaluator`, with `Sandbox.Tests` covering each.
+3. **Demonstrate**: api `ProductSpecifications` + read-only repo method; console
+   `SpecificationExamples` wired into `Program.cs`.
+
+## Risks
+
+- **Namespace repoint churn** across 12+ files — mechanical but easy to miss a
+  fully-qualified `Utils.Unit`; the green-build gate catches it.
+- **Referencing an Exe project**: `Sandbox.Tests`/`sandbox-api` reference the *library*, not
+  each other's Exe — no issue. The console `Sandbox` stays an Exe referencing the lib.
+- Scope is larger than a pure feature (it includes a refactor); phase 1 is isolated and
+  verifiable on its own.
